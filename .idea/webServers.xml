@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="2e917cfc-b375-4752-ba58-3f3f05f635ba" name="nus" url="http://kpe.d1.comp.nus.edu.sg">
+        <fileTransfer host="kpe.d1.comp.nus.edu.sg" port="22" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+      <webServer id="fafd32e6-adba-4ea3-8315-08a793a4e409" name="nus_2" url="http://weisshorn.d2.comp.nus.edu.sg">
+        <fileTransfer host="weisshorn.d2.comp.nus.edu.sg" port="22" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+      <webServer id="9602f636-8fc8-4245-8046-bedc3201ff5d" name="next_4" url="http://next-gpu4.d2.comp.nus.edu.sg">
+        <fileTransfer host="next-gpu4.d2.comp.nus.edu.sg" port="22" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

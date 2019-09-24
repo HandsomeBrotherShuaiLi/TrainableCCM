@@ -47,8 +47,10 @@ def prepare_data(path, is_train=True):
         with open('%s/trainset.txt' % path) as f:
             for idx, line in enumerate(f):
                 #if idx == 100000: break
-                if idx % 100000 == 0: print('read train file line %d' % idx)
-                data_train.append(json.loads(line))
+                if idx % 1000 == 0: print('read train file line %d' % idx)
+                t=json.loads(line)
+                data_train.append(t)
+                print(t.keys())
 
     with open('%s/valset.txt' % path) as f:
         for line in f:
@@ -84,7 +86,7 @@ def build_vocab(path, raw_vocab, trans='transE'):
     vectors = {}
     with open('%s/glove.840B.300d.txt' % path) as f:
         for i, line in enumerate(f):
-            if i % 100000 == 0:
+            if i % 1000 == 0:
                 print("    processing line %d" % i)
             s = line.strip()
             word = s[:s.find(' ')]
@@ -94,11 +96,13 @@ def build_vocab(path, raw_vocab, trans='transE'):
     embed = []
     for word in vocab_list:
         if word in vectors:
-            vector = map(float, vectors[word].split())
+            vector=vectors[word].split()
+            # vector = map(float, vectors[word].split())
         else:
             vector = np.zeros((FLAGS.embed_units), dtype=np.float32)
+        # print(vector)
         embed.append(vector)
-    embed = np.array(embed, dtype=np.float32)
+    embed = np.array(embed, dtype='float32')
             
     print("Loading entity vectors...")
     entity_embed = []
@@ -122,6 +126,8 @@ def build_vocab(path, raw_vocab, trans='transE'):
 
 def gen_batched_data(data):
     global csk_entities, csk_triples, kb_dict
+    # print('get-batch-data')
+    # print(data[0].keys())
     encoder_len = max([len(item['post']) for item in data])+1
     decoder_len = max([len(item['response']) for item in data])+1
     triple_num = max([len(item['all_triples']) for item in data])+1
@@ -319,16 +325,16 @@ with tf.Session(config=config) as sess:
             print("Created model with fresh parameters.")
             tf.global_variables_initializer().run()
             op_in = model.symbol2index.insert(constant_op.constant(vocab),
-                constant_op.constant(range(FLAGS.symbols), dtype=tf.int64))
+                constant_op.constant(list(range(FLAGS.symbols)), dtype=tf.int64))
             sess.run(op_in)
             op_out = model.index2symbol.insert(constant_op.constant(
-                range(FLAGS.symbols), dtype=tf.int64), constant_op.constant(vocab))
+                list(range(FLAGS.symbols)), dtype=tf.int64), constant_op.constant(vocab))
             sess.run(op_out)
             op_in = model.entity2index.insert(constant_op.constant(entity_vocab+relation_vocab),
-                constant_op.constant(range(len(entity_vocab)+len(relation_vocab)), dtype=tf.int64))
+                constant_op.constant(list(range(len(entity_vocab)+len(relation_vocab))), dtype=tf.int64))
             sess.run(op_in)
             op_out = model.index2entity.insert(constant_op.constant(
-                range(len(entity_vocab)+len(relation_vocab)), dtype=tf.int64), constant_op.constant(entity_vocab+relation_vocab))
+                list(range(len(entity_vocab)+len(relation_vocab))), dtype=tf.int64), constant_op.constant(entity_vocab+relation_vocab))
             sess.run(op_out)
 
         if FLAGS.log_parameters:
@@ -338,12 +344,15 @@ with tf.Session(config=config) as sess:
         loss_step, time_step = np.zeros((1, )), .0
         previous_losses = [1e18]*3
         train_len = len(data_train)
+        print('*'*50+'train data len:{}'.format(train_len)+'*'*50)
+        per_checkpoint=train_len//FLAGS.batch_size
         while True:
-            st, ed = 0, FLAGS.batch_size * FLAGS.per_checkpoint
+            st, ed = 0, FLAGS.batch_size * per_checkpoint
             random.shuffle(data_train)
-            while st < train_len:
+            while st < ed:
                 start_time = time.time()
                 for batch in range(st, ed, FLAGS.batch_size):
+                    print(time.ctime()+'导入第{}个数据训练'.format(batch))
                     loss_step += train(model, sess, data_train[batch:batch+FLAGS.batch_size]) / (ed - st)
 
                 show = lambda a: '[%s]' % (' '.join(['%.2f' % x for x in a]))
@@ -361,7 +370,8 @@ with tf.Session(config=config) as sess:
                 evaluate(model, sess, data_dev, summary_writer)
                 previous_losses = previous_losses[1:]+[np.sum(loss_step)]
                 loss_step, time_step = np.zeros((1, )), .0
-                st, ed = ed, min(train_len, ed + FLAGS.batch_size * FLAGS.per_checkpoint)
+                st=ed
+                # st, ed = ed, min(train_len, ed + FLAGS.batch_size * per_checkpoint)
             model.saver_epoch.save(sess, '%s/epoch/checkpoint' % FLAGS.train_dir, global_step=model.global_step)
     else:
         model = Model(
