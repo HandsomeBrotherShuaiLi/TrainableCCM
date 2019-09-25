@@ -9,7 +9,7 @@ import time
 import random
 random.seed(time.time())
 from model import Model, _START_VOCAB
-
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 tf.app.flags.DEFINE_boolean("is_train", True, "Set to False to inference.")
 tf.app.flags.DEFINE_integer("symbols", 46494, "vocabulary size.")
 tf.app.flags.DEFINE_integer("num_entities", 21471, "entitiy vocabulary size.")
@@ -277,7 +277,7 @@ def test(sess, saver, data_dev, setnum=5000):
             match_entity_sum = [.0] * 4
             cnt = 0
             for post, response, result, match_triples, triples, entities in zip([data['post'] for data in data_dev], [data['response'] for data in data_dev], results, [data['match_triples'] for data in data_dev], [data['all_triples'] for data in data_dev], [data['all_entities'] for data in data_dev]):
-                setidx = cnt / setnum
+                setidx =int(cnt/setnum)
                 result_matched_entities = []
                 triples = [csk_triples[tri] for triple in triples for tri in triple]
                 match_triples = [csk_triples[triple] for triple in match_triples]
@@ -287,6 +287,12 @@ def test(sess, saver, data_dev, setnum=5000):
                 for word in result:
                     if word not in stopwords and word in entities:
                         result_matched_entities.append(word)
+                post=[str(j) for j in post]
+                response=[str(j) for j in response]
+                result=[bytes.decode(j) for j in result]
+                result_matched_entities=[bytes.decode(j) for j in result_matched_entities]
+                print(result)
+
                 outfile.write('post: %s\nresponse: %s\nresult: %s\nmatch_entity: %s\n\n' % (' '.join(post), ' '.join(response), ' '.join(result), ' '.join(result_matched_entities)))
                 match_entity_sum[setidx] += len(set(result_matched_entities))
                 cnt += 1
@@ -320,6 +326,7 @@ with tf.Session(config=config) as sess:
                 num_trans_units=FLAGS.trans_units)
         if tf.train.get_checkpoint_state(FLAGS.train_dir):
             print("Reading model parameters from %s" % FLAGS.train_dir)
+            print('\033[1;33;44m继续上一次训练！\033[0m')
             model.saver.restore(sess, tf.train.latest_checkpoint(FLAGS.train_dir))
         else:
             print("Created model with fresh parameters.")

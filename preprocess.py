@@ -85,7 +85,7 @@ class Preprocess(object):
         except Exception as e:
             print(e)
             return 'An error occured. Discard this training example'
-    def generate_file(self):
+    def generate_file(self,multi_turn=True):
         if self.data_set_path.endswith('train_3.txt'):
             """
             preprocess our own dataset
@@ -99,53 +99,120 @@ class Preprocess(object):
                 testset=[]
                 count=0
                 vocab={}
-                for idx,sample in enumerate(samples):
-                    temp=sample.split('\t')
-                    d={}
-                    context=temp[0].split()
-                    response=temp[1].split()
-                    entities, triples, match_triples, post_triples, response_triples, match_index=self.mapping_between_csk_dialogue(context,response)
-                    if len(match_triples)==0:
-                        continue
-                    count+=1
-                    d['post'] = context
-                    d['response'] = response
-                    for word in context+response:
-                        if word in vocab:
-                            vocab[word]+=1
+                if multi_turn==False:
+                    for idx, sample in enumerate(samples):
+                        temp = sample.split('\t')
+                        d = {}
+                        context = temp[0].split()
+                        response = temp[1].split()
+                        entities, triples, match_triples, post_triples, response_triples, match_index = self.mapping_between_csk_dialogue(
+                            context, response)
+                        if len(match_triples) == 0:
+                            continue
+                        count += 1
+                        d['post'] = context
+                        d['response'] = response
+                        for word in context + response:
+                            if word in vocab:
+                                vocab[word] += 1
+                            else:
+                                vocab[word] = 1
+                        d['match_triples'] = [self.dict_csk_triples[m] for m in match_triples]
+                        d['all_triples'] = [[self.dict_csk_triples[m] for m in tri] for tri in triples]
+                        d['all_entities'] = [[self.dict_csk_entities[m] for m in ent] for ent in entities]
+                        d['post_triples'] = post_triples
+                        d['response_triples'] = [-1 if m == -1 else self.dict_csk_triples[m] for m in response_triples]
+                        d['match_index'] = match_index
+                        if count <= 100:
+                            testset.append(json.dumps(d))
+                        elif count <= 100 + val_num:
+                            valset.append(json.dumps(d))
                         else:
-                            vocab[word]=1
-                    d['match_triples'] = [self.dict_csk_triples[m] for m in match_triples]
-                    d['all_triples'] = [[self.dict_csk_triples[m] for m in tri] for tri in triples]
-                    d['all_entities'] = [[self.dict_csk_entities[m] for m in ent] for ent in entities]
-                    d['post_triples'] = post_triples
-                    d['response_triples'] = [-1 if m == -1 else self.dict_csk_triples[m] for m in response_triples]
-                    d['match_index'] = match_index
-                    if count<=100:
-                        testset.append(json.dumps(d))
-                    elif count<=100+val_num:
-                        valset.append(json.dumps(d))
-                    else:
-                        trainset.append(json.dumps(d))
-                print('valnum {}'.format(val_num))
-                print("match number>0 {}".format(count))
-                print("vocab num {}".format(len(vocab)))
-                print('train number:{}, val num:{} test number:{}'.format(len(trainset),len(valset),len(testset)))
-                source={'dict_csk':self.dict_csk,'csk_entities':self.csk_entities,'csk_triples':self.csk_triples,
-                        'dict_csk_entities':self.dict_csk_entities,'dict_csk_triples':self.dict_csk_triples,
-                        'vocab_dict':vocab}
-                with open('data/source.json','w') as f:
-                    json.dump(source,f)
-                with open('data/trainset.txt','w') as f:
-                    f.write('\n'.join(trainset))
-                with open('data/valset.txt','w') as f:
-                    f.write('\n'.join(valset))
-                with open('data/testset.txt','w') as f:
-                    f.write('\n'.join(testset))
+                            trainset.append(json.dumps(d))
+                    print('valnum {}'.format(val_num))
+                    print("match number>0 {}".format(count))
+                    print("vocab num {}".format(len(vocab)))
+                    print('train number:{}, val num:{} test number:{}'.format(len(trainset), len(valset), len(testset)))
+                    source = {'dict_csk': self.dict_csk, 'csk_entities': self.csk_entities,
+                              'csk_triples': self.csk_triples,
+                              'dict_csk_entities': self.dict_csk_entities, 'dict_csk_triples': self.dict_csk_triples,
+                              'vocab_dict': vocab}
+                    with open('data/source.json', 'w') as f:
+                        json.dump(source, f)
+                    with open('data/trainset.txt', 'w') as f:
+                        f.write('\n'.join(trainset))
+                    with open('data/valset.txt', 'w') as f:
+                        f.write('\n'.join(valset))
+                    with open('data/testset.txt', 'w') as f:
+                        f.write('\n'.join(testset))
+                else:
+                    for idx, sample in enumerate(samples):
+                        temp = sample.split('\t')
+                        context = temp[0].split()
+                        response = temp[1].split()
+                        all_atts=[]
+                        for word in context + response:
+                            if word in vocab:
+                                vocab[word] += 1
+                            else:
+                                vocab[word] = 1
+                        for i in temp[0].split('<eou>'):
+                            all_atts.append(i.split(' '))
+                        response+=['<eou>']
+                        all_atts.append(response)
+                        ds=[]
+                        flag=False
+                        for i in range(len(all_atts)-1):
+                            post=[]
+                            for j in all_atts[:i+1]:
+                                post+=j+['<eou>']
+                            entities, triples, match_triples, post_triples, response_triples, match_index = self.mapping_between_csk_dialogue(
+                                post, all_atts[i+1])
+                            if len(match_triples) == 0:
+                                continue
+                            flag=True
+                            d = {}
+                            d['post'] = post
+                            d['response'] = all_atts[i+1]
+                            d['match_triples'] = [self.dict_csk_triples[m] for m in match_triples]
+                            d['all_triples'] = [[self.dict_csk_triples[m] for m in tri] for tri in triples]
+                            d['all_entities'] = [[self.dict_csk_entities[m] for m in ent] for ent in entities]
+                            d['post_triples'] = post_triples
+                            d['response_triples'] = [-1 if m == -1 else self.dict_csk_triples[m] for m in
+                                                     response_triples]
+                            d['match_index'] = match_index
+                            ds.append(d)
+                        if flag:
+                            count+=1
+                        if count <= 100:
+                            for d in ds:
+                                testset.append(json.dumps(d))
+                        elif count <= 100 + val_num:
+                            for d in ds:
+                                valset.append(json.dumps(d))
+                        else:
+                            for d in ds:
+                                trainset.append(json.dumps(d))
+                    print('valnum {}'.format(len(valset)))
+                    print("match number>0 {}".format(count))
+                    print("vocab num {}".format(len(vocab)))
+                    print('train number:{}, val num:{} test number:{}'.format(len(trainset), len(valset), len(testset)))
+                    source = {'dict_csk': self.dict_csk, 'csk_entities': self.csk_entities,
+                              'csk_triples': self.csk_triples,
+                              'dict_csk_entities': self.dict_csk_entities, 'dict_csk_triples': self.dict_csk_triples,
+                              'vocab_dict': vocab}
+                    with open('data/source.json', 'w') as f:
+                        json.dump(source, f)
+                    with open('data/trainset.txt', 'w') as f:
+                        f.write('\n'.join(trainset))
+                    with open('data/valset.txt', 'w') as f:
+                        f.write('\n'.join(valset))
+                    with open('data/testset.txt', 'w') as f:
+                        f.write('\n'.join(testset))
 
         else:
             raise ValueError("We haven't implemented the preprocess function of this dataset!")
 
 p=Preprocess()
-p.generate_file()
+p.generate_file(multi_turn=True)
 
